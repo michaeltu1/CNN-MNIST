@@ -6,251 +6,159 @@ from __future__ import print_function
 import numpy as np
 import tensorflow as tf
 
+import os
+import argparse
 from tensorpack import *
 from tensorpack.tfutils import summary, get_current_tower_context
 from tensorpack.dataflow import dataset
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
-# Our application logic will be added here
-
-def cnn_model_fn(features, labels, mode):
-	"""Model function for CNN."""
-	# Input Layer
-	input_layer = tf.reshape(features["x"], [-1, 28, 28, 1])
-
-	# Convolutional Layer #1
-	conv1 = tf.layers.conv2d(
-	  inputs=input_layer,
-	  filters=32,
-	  kernel_size=[5, 5],
-	  padding="same",
-	  activation=tf.nn.relu)
-
-	# Pooling Layer #1
-	pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
-
-	# Convolutional Layer #2 and Pooling Layer #2
-	conv2 = tf.layers.conv2d(
-	  inputs=pool1,
-	  filters=64,
-	  kernel_size=[5, 5],
-	  padding="same",
-	  activation=tf.nn.relu)
-	pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
-
-	# Dense Layer
-	pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
-	dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
-	dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
-
-	# Logits Layer
-	logits = tf.layers.dense(inputs=dropout, units=10)
-
-	predictions = {
-	  # Generate predictions (for PREDICT and EVAL mode)
-	  "classes": tf.argmax(input=logits, axis=1),
-	  # Add `softmax_tensor` to the graph. It is used for PREDICT and by the
-	  # `logging_hook`.
-	  "probabilities": tf.nn.softmax(logits, name="softmax_tensor")
-	}
-
-	if mode == tf.estimator.ModeKeys.PREDICT:
-		return tf.estimator.EstimatorSpec(mode=mode, predictions=predictions)
-
-	# Calculate Loss (for both TRAIN and EVAL modes)
-	loss = tf.losses.sparse_softmax_cross_entropy(labels=labels, logits=logits)
-
-	# Configure the Training Op (for TRAIN mode)
-	if mode == tf.estimator.ModeKeys.TRAIN:
-		optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.001)
-		train_op = optimizer.minimize(loss=loss,global_step=tf.train.get_global_step())
-		return tf.estimator.EstimatorSpec(mode=mode, loss=loss, train_op=train_op)
-
-	# Add evaluation metrics (for EVAL mode)
-	eval_metric_ops = {"accuracy" : tf.metrics.accuracy(labels=labels, predictions=predictions["classes"])}
-	return tf.estimator.EstimatorSpec(mode=mode, loss=loss, eval_metric_ops=eval_metric_ops)
-
-def main(unused_argv):
-	# Load training and eval data
-	mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-	train_data = mnist.train.images # Returns np.array
-	train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-	eval_data = mnist.test.images # Returns np.array
-	eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
-
-	# Create the Estimator
-	mnist_classifier = tf.estimator.Estimator(
-	model_fn=cnn_model_fn, model_dir="/tmp/mnist_convnet_model")
-
-	# Set up logging for predictions
-	tensors_to_log = {"probabilities": "softmax_tensor"}
-	logging_hook = tf.train.LoggingTensorHook(
-	  tensors=tensors_to_log, every_n_iter=50)
-
-	 # Train the model
-	train_input_fn = tf.estimator.inputs.numpy_input_fn(
-	  x={"x": train_data},
-	  y=train_labels,
-	  batch_size=100,
-	  num_epochs=None,
-	  shuffle=True)
-	mnist_classifier.train(
-	  input_fn=train_input_fn,
-	  steps=20000,
-	  hooks=[logging_hook])
-
-	# Evaluate the model and print results
-	eval_input_fn = tf.estimator.inputs.numpy_input_fn(
-	  x={"x": eval_data},
-	  y=eval_labels,
-	  num_epochs=1,
-	  shuffle=False)
-	eval_results = mnist_classifier.evaluate(input_fn=eval_input_fn)
-	print(eval_results)
-
-####################################################################
-
 # Using Tensorpacks ...
 
 # ref. https://github.com/ppwwyyxx/tensorpack/blob/master/tensorpack/graph_builder/model_desc.py for inheritance info
 class Model(ModelDesc):
 
-    def inputs(self):
-    	"""
-        __Create__ and returns a list of placeholders.
-        A subclass is expected to implement this method.
-        The placeholders __have to__ be created inside this method.
-        Don't return placeholders created in other methods.
-        Also, you should not call this method by yourself.
-        Returns:
-            a list of `tf.placeholder`, to be converted to :class:`InputDesc`.
-        """
-    	# what inputs do I need? images
-    	# what should be defined as image_size?
-    	return [tf.placeholder(tf.float32, (None, IMAGE_SIZE, IMAGE_SIZE), 'input'), tf.placeholder(tf.int32, (None,), 'label')]
+	def inputs(self):
+		"""
+		__Create__ and returns a list of placeholders.
+		A subclass is expected to implement this method.
+		The placeholders __have to__ be created inside this method.
+		Don't return placeholders created in other methods.
+		Also, you should not call this method by yourself.
+		Returns:
+			a list of `tf.placeholder`, to be converted to :class:`InputDesc`.
+		"""
+		# what inputs do I need? images
+		# what should be defined as image_size? 
+		# ref. http://tensorpack.readthedocs.io/en/latest/modules/dataflow.dataset.html#tensorpack.dataflow.dataset.Mnist
+		# images are 28x28
+		return [tf.placeholder(tf.float32, (None, 28, 28), 'input'), tf.placeholder(tf.int32, (None,), 'label')]
 
-    def build_graph(self, image, label):
-    	"""
-        Build the whole symbolic graph.
-        This is supposed to be part of the "tower function" when used with :class:`TowerTrainer`.
-        By default it will call :meth:`_build_graph` with a list of input tensors.
-        A subclass is expected to overwrite this method or the :meth:`_build_graph` method.
-        Args:
-            args ([tf.Tensor]): tensors that matches the list of inputs defined by ``inputs()``.
-        Returns:
-            In general it returns nothing, but a subclass (e.g.
-            :class:`ModelDesc`) may require it to return necessary information
-            (e.g. cost) to build the trainer.
-        """
-    	# inputs to conv nets are NWHC := Num_samples x Height x Width x Channels
-    	image = tf.expand_dims(image, 3)
+	def build_graph(self, image, label):
+		"""
+		Build the whole symbolic graph.
+		This is supposed to be part of the "tower function" when used with :class:`TowerTrainer`.
+		By default it will call :meth:`_build_graph` with a list of input tensors.
+		A subclass is expected to overwrite this method or the :meth:`_build_graph` method.
+		Args:
+			args ([tf.Tensor]): tensors that matches the list of inputs defined by ``inputs()``.
+		Returns:
+			In general it returns nothing, but a subclass (e.g.
+			:class:`ModelDesc`) may require it to return necessary information
+			(e.g. cost) to build the trainer.
+		"""
+		# inputs to conv nets are NWHC := Num_samples x Height x Width x Channels
+		image = tf.expand_dims(image, 3)
 
-    	image = image * 2 - 1   # center the pixels values at zero?? i don't understand ..
+		image = image * 2 - 1   # center the pixels values at zero?? i don't understand ..
 
-    	# build symbolic layers somewhere in here
-    	# ref. info about argscope: http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/tfutils/argscope.html
-    	# making layers in argscope is supposed to let you do something ..? assign arg. characteristics to each layer
-    	with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
+		# build symbolic layers somewhere in here
+		# ref. info about argscope: http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/tfutils/argscope.html
+		# making layers in argscope is supposed to let you do something ..? assign arg. characteristics to each layer
+		with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
 
-    		# following 6 layer architecture used previously
-            c0 = Conv2D('conv0', image)
-            p0 = MaxPooling('pool0', c0, 2)
-            c1 = Conv2D('conv1', p0)
-            p1 = MaxPooling('pool1', c1, 2)
-            fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
-            fc1 = Dropout('dropout', fc1, 0.4)
-            logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
+			# following 6 layer architecture used previously
+			c0 = Conv2D('conv0', image)
+			p0 = MaxPooling('pool0', c0, 2)
+			c1 = Conv2D('conv1', p0)
+			p1 = MaxPooling('pool1', c1, 2)
+			fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
+			fc1 = Dropout('dropout', fc1, 0.4)
+			logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
 
-        # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
-        tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
+		# Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
+		tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
 
-        # a vector of length B with loss of each sample
-        cost = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=label)
-        cost = tf.reduce_mean(cost, name='cross_entropy_loss')  # the average cross-entropy loss
+		# a vector of length B with loss of each sample
+		cost = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=label)
+		cost = tf.reduce_mean(cost, name='cross_entropy_loss')  # the average cross-entropy loss
 
-        correct = tf.cast(tf.nn.in_top_k(logits, label, 1), tf.float32, name='correct')
-        accuracy = tf.reduce_mean(correct, name='accuracy')
+        # Casts to float32 type after checking if the prediction (1st) is equal to the label value
+		correct = tf.cast(tf.nn.in_top_k(logits, label, 1), tf.float32, name='correct')
+		accuracy = tf.reduce_mean(correct, name='accuracy')
 
-        # This will monitor training error (in a moving_average fashion):
-        # 1. write the value to tensosrboard
-        # 2. write the value to stat.json
-        # 3. print the value after each epoch
-        train_error = tf.reduce_mean(1 - correct, name='train_error')
-        summary.add_moving_summary(train_error, accuracy)
+		# This will monitor training error (in a moving_average fashion):
+		# 1. write the value to tensosrboard
+		# 2. write the value to stat.json
+		# 3. print the value after each epoch
+		train_error = tf.reduce_mean(1 - correct, name='train_error') # ?
+		summary.add_moving_summary(train_error, accuracy)
 
-        # Use a regex to find parameters to apply weight decay.
-        # Here we apply a weight decay on all W (weight matrix) of all fc layers
-        wd_cost = tf.multiply(1e-5,
-                              regularize_cost('fc.*/W', tf.nn.l2_loss),
-                              name='regularize_loss')
-        total_cost = tf.add_n([wd_cost, cost], name='total_cost')
-        summary.add_moving_summary(cost, wd_cost, total_cost)
+		# Use a regex to find parameters to apply weight decay.
+		# Here we apply a weight decay on all W (weight matrix) of all fc layers
+		# Regularizing - avoiding overfitting
+		wd_cost = tf.multiply(1e-5,
+							  regularize_cost('fc.*/W', tf.nn.l2_loss),
+							  name='regularize_loss')
+		total_cost = tf.add_n([wd_cost, cost], name='total_cost')
+		summary.add_moving_summary(cost, wd_cost, total_cost)
 
-        # monitor histogram of all weight (of conv and fc layers) in tensorboard
-        summary.add_param_summary(('.*/W', ['histogram', 'rms']))
-        return total_cost
+		# monitor histogram of all weight (of conv and fc layers) in tensorboard
+		summary.add_param_summary(('.*/W', ['histogram', 'rms'])) # ?
+		return total_cost
 
-    def optimizer(self):
-    	# Returns a `tf.train.Optimizer` instance.
-    	lr = tf.train.exponential_decay(
-            learning_rate=1e-3,
-            global_step=get_global_step_var(),
-            decay_steps=468 * 10,
-            decay_rate=0.3, staircase=True, name='learning_rate')
-        # This will also put the summary in tensorboard, stat.json and print in terminal
-        # but this time without moving average
-        tf.summary.scalar('lr', lr)
-        return tf.train.AdamOptimizer(lr)
+	def optimizer(self):
+		# Returns a `tf.train.Optimizer` instance.
+		lr = tf.train.exponential_decay(
+			learning_rate=1e-3,
+			global_step=get_global_step_var(),
+			decay_steps=468 * 10,
+			decay_rate=0.3, staircase=True, name='learning_rate')
+		# This will also put the summary in tensorboard, stat.json and print in terminal
+		# but this time without moving average
+		tf.summary.scalar('lr', lr)
+		return tf.train.AdamOptimizer(lr)
 
 
 def get_data():
-    train = BatchData(dataset.Mnist('train'), 128)
-    test = BatchData(dataset.Mnist('test'), 256, remainder=True)
+	# Dataflow / Input src
+	# Bactch size = hyperparam. others found (cross validation)
+	train = BatchData(dataset.Mnist('train'), 128)
+	test = BatchData(dataset.Mnist('test'), 256, remainder=True)
 
-    train = PrintData(train)
+	train = PrintData(train)
 
-    return train, test
+	return train, test
 
 
 def get_config():
-    dataset_train, dataset_test = get_data()
-    # How many iterations you want in each epoch.
-    # This is the default value, don't actually need to set it in the config
-    steps_per_epoch = dataset_train.size()
+	dataset_train, dataset_test = get_data()
+	# How many iterations you want in each epoch.
+	# This is the default value, don't actually need to set it in the config
+	steps_per_epoch = dataset_train.size()
 
-    # get the config which contains everything necessary in a training
-    return TrainConfig(
-        model=Model(),
-        dataflow=dataset_train,  # the DataFlow instance for training
-        callbacks=[
-            ModelSaver(),   # save the model after every epoch
-            MaxSaver('validation_accuracy'),  # save the model with highest accuracy (prefix 'validation_')
-            InferenceRunner(    # run inference(for validation) after every epoch
-                dataset_test,   # the DataFlow instance used for validation
-                ScalarStats(['cross_entropy_loss', 'accuracy'])),
-        ],
-        steps_per_epoch=steps_per_epoch,
-        max_epoch=100,
-    )
+	# get the config which contains everything necessary in a training
+	return TrainConfig(
+		model=Model(),
+		dataflow=dataset_train,  # the DataFlow instance for training
+		callbacks=[
+			ModelSaver(),   # save the model after every epoch
+			MaxSaver('validation_accuracy'),  # save the model with highest accuracy (prefix 'validation_')
+			InferenceRunner(    # run inference(for validation) after every epoch
+				dataset_test,   # the DataFlow instance used for validation
+				ScalarStats(['cross_entropy_loss', 'accuracy'])),
+		],
+		steps_per_epoch=steps_per_epoch,
+		max_epoch=100,
+	)
 
 
 if __name__ == "__main__":
-  # tf.app.run()
 	
 	parser = argparse.ArgumentParser()
-    parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
-    parser.add_argument('--load', help='load model')
-    args = parser.parse_args()
-    if args.gpu:
-        os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
+	parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
+	parser.add_argument('--load', help='load model')
+	args = parser.parse_args()
+	if args.gpu:
+		os.environ['CUDA_VISIBLE_DEVICES'] = args.gpu
 
-    # automatically setup the directory train_log/mnist-convnet for logging
-    logger.auto_set_dir()
+	# automatically setup the directory train_log/tp_cnn_mnist for logging
+	logger.auto_set_dir()
 
-    config = get_config()
-    if args.load:
-        config.session_init = SaverRestore(args.load)
+	config = get_config()
+	if args.load:
+		config.session_init = SaverRestore(args.load)
 
-    # Use QueueInputTrainer instead?
-    launch_train_with_config(config, SimpleTrainer())
+	# trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
+	launch_train_with_config(config, QueueInputTrainer())
