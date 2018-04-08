@@ -145,7 +145,22 @@ def get_config():
 
 
 if __name__ == "__main__":
-	
+
+	# lscpci or lspci | grep -i --color 'vga\|3d\|2d' to get graphic card ids to pass in
+	# $ lspci
+	# 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
+	# 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
+	# 00:01.1 IDE interface: Intel Corporation 82371SB PIIX3 IDE [Natoma/Triton II]
+	# 00:01.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 01)
+	# 00:02.0 VGA compatible controller: Cirrus Logic GD 5446
+	# 00:03.0 Ethernet controller: Device 1d0f:ec20
+	# 00:1d.0 VGA compatible controller: NVIDIA Corporation GM204GL [Tesla M60] (rev a1)
+	# 00:1e.0 VGA compatible controller: NVIDIA Corporation GM204GL [Tesla M60] (rev a1)
+	# 00:1f.0 Unassigned class [ff80]: XenSource, Inc. Xen Platform Device (rev 01)
+
+	# thus, use the following command to run on given remote machine:
+	# python tp_cnn_mnist.py --gpu 00:d.0, 00:1e.0
+
 	parser = argparse.ArgumentParser()
 	parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
 	parser.add_argument('--load', help='load model')
@@ -160,5 +175,9 @@ if __name__ == "__main__":
 	if args.load:
 		config.session_init = SaverRestore(args.load)
 
-	# trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
-	launch_train_with_config(config, QueueInputTrainer())
+	if args.gpu:
+		# ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SyncMultiGPUTrainerReplicated
+		launch_train_with_config(config, SyncMultiGPUTrainer())
+	else:
+		# trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
+		launch_train_with_config(config, QueueInputTrainer())
