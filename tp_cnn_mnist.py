@@ -11,12 +11,16 @@ import argparse
 from tensorpack import *
 from tensorpack.tfutils import summary, get_current_tower_context
 from tensorpack.dataflow import dataset
+from tensorpack.utils.gpu import get_nr_gpu
+
+import horovod.tensorflow as hvd
 
 tf.logging.set_verbosity(tf.logging.INFO)
 
 # Using Tensorpacks ...
 batch_size = 128
 num_gpus = 1
+NR_GPU = 2
 
 # ref. https://github.com/ppwwyyxx/tensorpack/blob/master/tensorpack/graph_builder/model_desc.py for inheritance info
 class Model(ModelDesc):
@@ -66,7 +70,7 @@ class Model(ModelDesc):
             c1 = Conv2D('conv1', p0)
             p1 = MaxPooling('pool1', c1, 2)
             fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
-            fc1 = Dropout('dropout', fc1, 0.4)
+            fc1 = Dropout('dropout', fc1, rate=0.6)
             logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
@@ -115,11 +119,15 @@ class Model(ModelDesc):
 
 def get_data():
     # Dataflow / Input src
-    # Bactch size = hyperparam. others found (cross validation)
+    # Batch size = hyperparam. others found (cross validation)
     train = BatchData(dataset.Mnist('train'), batch_size / num_gpus)
     test = BatchData(dataset.Mnist('test'), 2 * batch_size / num_gpus, remainder=True)
 
-    train = PrintData(train)
+    # train = PrintData(train)
+
+    print("Testing Dataflow Speed ...")
+    print(TestDataSpeed(dataset.Mnist('train')).start())
+    print("Ended Dataflow test")
 
     return train, test
 
@@ -178,11 +186,16 @@ if __name__ == "__main__":
         config.session_init = SaverRestore(args.load)
 
     if args.gpu:
-        print("Using SyncMultiGPUTrainer ...")
-        gpus = args.gpu.split(",")
-        num_gpus = len(gpus)
+        print("Using MultiGPUTrainer ...")
+        num_gpus = 2
+        gpus = get_nr_gpu()
+        nr_tower = get_nr_gpu()
+        print(nr_tower)
+        assert nr_tower == NR_GPU 
         # ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SyncMultiGPUTrainerReplicated
-        launch_train_with_config(config, SyncMultiGPUTrainer(gpus))
+        # launch_train_with_config(config, AsyncMultiGPUTrainer(NR_GPU))
+        # if you run into a module error run: pip install horovod
+        launch_train_with_config(config, HorovodTrainer(average=False))
     else:
         print("Using QueueInputTrainer ...")
         # trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
