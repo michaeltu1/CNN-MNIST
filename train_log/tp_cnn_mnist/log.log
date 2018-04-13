@@ -1,0 +1,60 @@
+[32m[0413 16:27:51 @logger.py:74][0m Argv: tp_cnn_mnist.py
+[32m[0413 16:27:51 @fs.py:89][0m [5m[31mWRN[0m Env var $TENSORPACK_DATASET not set, using C:\Users\micha\tensorpack_data for datasets.
+[32m[0413 16:27:52 @interface.py:32][0m Automatically applying QueueInput on the DataFlow.
+[32m[0413 16:27:52 @input_source.py:194][0m Setting up the queue 'QueueInput/input_queue' for CPU prefetching ...
+[32m[0413 16:27:52 @trainers.py:52][0m Building graph for a single training tower ...
+[32m[0413 16:27:52 @registry.py:121][0m conv0 input: [None, 28, 28, 1]
+[32m[0413 16:27:52 @registry.py:129][0m conv0 output: [None, 28, 28, 32]
+[32m[0413 16:27:52 @registry.py:121][0m pool0 input: [None, 28, 28, 32]
+[32m[0413 16:27:52 @registry.py:129][0m pool0 output: [None, 14, 14, 32]
+[32m[0413 16:27:52 @registry.py:121][0m conv1 input: [None, 14, 14, 32]
+[32m[0413 16:27:52 @registry.py:129][0m conv1 output: [None, 14, 14, 32]
+[32m[0413 16:27:52 @registry.py:121][0m pool1 input: [None, 14, 14, 32]
+[32m[0413 16:27:52 @registry.py:129][0m pool1 output: [None, 7, 7, 32]
+[32m[0413 16:27:52 @registry.py:121][0m fc0 input: [None, 7, 7, 32]
+[32m[0413 16:27:53 @registry.py:129][0m fc0 output: [None, 1024]
+[32m[0413 16:27:53 @registry.py:121][0m fc1 input: [None, 1024]
+[32m[0413 16:27:53 @registry.py:129][0m fc1 output: [None, 10]
+[32m[0413 16:27:53 @regularize.py:88][0m regularize_cost() found 2 variables to regularize.
+[32m[0413 16:27:53 @regularize.py:19][0m The following tensors will be regularized: fc0/W:0, fc1/W:0
+[32m[0413 16:27:53 @model_utils.py:55][0m [36mTrainable Variables: 
+[0mname       shape               dim
+---------  --------------  -------
+conv0/W:0  [3, 3, 1, 32]       288
+conv0/b:0  [32]                 32
+conv1/W:0  [3, 3, 32, 32]     9216
+conv1/b:0  [32]                 32
+fc0/W:0    [1568, 1024]    1605632
+fc0/b:0    [1024]             1024
+fc1/W:0    [1024, 10]        10240
+fc1/b:0    [10]                 10[36m
+Total #vars=8, #params=1626474, size=6.20MB[0m
+[32m[0413 16:27:53 @base.py:209][0m Setup callbacks graph ...
+[32m[0413 16:27:53 @predict.py:42][0m Building predictor tower 'InferenceTower' on device /gpu:0 ...
+[32m[0413 16:27:53 @summary.py:39][0m Maintain moving average summary of 5 tensors in collection MOVING_SUMMARY_OPS.
+[32m[0413 16:27:53 @summary.py:76][0m Summarizing collection 'summaries' of size 15.
+[32m[0413 16:27:53 @base.py:227][0m Creating the session ...
+[32m[0413 16:27:54 @base.py:235][0m Initializing the session ...
+[32m[0413 16:27:54 @base.py:242][0m Graph Finalized.
+[32m[0413 16:27:54 @concurrency.py:38][0m Starting EnqueueThread QueueInput/input_queue ...
+[32m[0413 16:27:54 @inference_runner.py:97][0m InferenceRunner will eval 40 iterations
+[32m[0413 16:27:54 @base.py:262][0m Start Epoch 1 ...
+[32m[0413 16:29:38 @base.py:272][0m Epoch 1 (global_step 468) finished, time:1 minute 44 seconds.
+[32m[0413 16:29:38 @saver.py:84][0m Model saved to train_log\tp_cnn_mnist\model-468.
+[32m[0413 16:29:45 @monitor.py:428][0m QueueInput/queue_size: 50
+[32m[0413 16:29:45 @monitor.py:428][0m accuracy: 0.96946
+[32m[0413 16:29:45 @monitor.py:428][0m cross_entropy_loss: 0.098882
+[32m[0413 16:29:45 @monitor.py:428][0m lr: 0.001
+[32m[0413 16:29:45 @monitor.py:428][0m param-summary/conv0/W-rms: 0.46917
+[32m[0413 16:29:45 @monitor.py:428][0m param-summary/conv1/W-rms: 0.086128
+[32m[0413 16:29:45 @monitor.py:428][0m param-summary/fc0/W-rms: 0.033591
+[32m[0413 16:29:45 @monitor.py:428][0m param-summary/fc1/W-rms: 0.044044
+[32m[0413 16:29:45 @monitor.py:428][0m regularize_loss: 0.0091369
+[32m[0413 16:29:45 @monitor.py:428][0m total_cost: 0.10802
+[32m[0413 16:29:45 @monitor.py:428][0m train_error: 0.030538
+[32m[0413 16:29:45 @monitor.py:428][0m validation_accuracy: 0.9832
+[32m[0413 16:29:45 @monitor.py:428][0m validation_cross_entropy_loss: 0.052393
+[32m[0413 16:29:45 @group.py:44][0m Callbacks took 6.720 sec in total. InferenceRunner: 6.5 seconds
+[32m[0413 16:29:45 @base.py:262][0m Start Epoch 2 ...
+[32m[0413 16:29:55 @base.py:280][0m Detected Ctrl-C and exiting main loop.
+[32m[0413 16:29:55 @input_source.py:149][0m EnqueueThread QueueInput/input_queue Exited.
