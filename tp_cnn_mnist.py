@@ -148,7 +148,8 @@ def get_config():
             InferenceRunner(    # run inference(for validation) after every epoch
                 dataset_test,   # the DataFlow instance used for validation
                 ScalarStats(['cross_entropy_loss', 'accuracy'])),
-                GPUUtilizationTracker([0,1]),   # monitor GPU usage
+                # GPUUtilizationTracker([0,1]),   # monitor GPU usage
+                # PeakMemoryTracker([0,1]),       # callback computation is nontrivial
         ],
         steps_per_epoch=steps_per_epoch,
         max_epoch=100,
