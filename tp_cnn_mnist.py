@@ -132,6 +132,7 @@ class Model(ModelDesc):
             # Logits Layer
             logits = tf.layers.dense(inputs=dropout, units=10)
 
+        print('random why git do this')
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
         tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
