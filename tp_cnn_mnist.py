@@ -62,6 +62,8 @@ class Model(ModelDesc):
         # build symbolic layers somewhere in here
         # ref. info about argscope: http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/tfutils/argscope.html
         # making layers in argscope is supposed to let you do something ..? assign arg. characteristics to each layer
+        # tp layers
+        """
         with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
 
             # following 6 layer architecture used previously
@@ -72,6 +74,35 @@ class Model(ModelDesc):
             fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
             fc1 = Dropout('dropout', fc1, rate=0.6)
             logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
+        """
+        # tf layers
+        with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
+
+            conv1 = tf.layers.conv2d(
+            inputs=image,
+            filters=32,
+            kernel_size=[5,5],
+            padding="same",
+            activation=tf.nn.relu)
+
+            pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2,2], strides=2)
+
+            conv2 = tf.layers.conv2d(inputs=pool1,
+            filters=75,
+            kernel_size=[5,5], 
+            padding="same", 
+            activation=tf.nn.relu)
+
+            pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2,2], strides=2)
+
+            pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+            dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
+            dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=True)
+
+            logits = tf.layers.dense(inputs=dropout, units=10)
+
+        print(logits.shape)
+        print(image.shape)
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
         tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
@@ -192,6 +223,7 @@ if __name__ == "__main__":
         # num_gpus = 2
         # gpus = get_nr_gpu()
         nr_tower = get_nr_gpu()
+        # num_gpus = nr_tower
         # print(nr_tower)
         # assert nr_tower == NR_GPU 
         # ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SyncMultiGPUTrainerReplicated
@@ -202,3 +234,4 @@ if __name__ == "__main__":
         print("Using QueueInputTrainer ...")
         # trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
         launch_train_with_config(config, QueueInputTrainer())
+
