@@ -76,6 +76,7 @@ class Model(ModelDesc):
             logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
         """
         # tf layers
+        """
         with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
 
             conv1 = tf.layers.conv2d(
@@ -100,9 +101,37 @@ class Model(ModelDesc):
             dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=True)
 
             logits = tf.layers.dense(inputs=dropout, units=10)
+        """
+        with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
 
-        print(logits.shape)
-        print(image.shape)
+            # following 6 layer architecture used previously
+            conv1 = tf.layers.conv2d(
+            inputs=image,
+            filters=32,
+            kernel_size=[5, 5],
+            padding="same",
+            activation=tf.nn.relu)
+
+            # Pooling Layer #1
+            pool1 = tf.layers.max_pooling2d(inputs=conv1, pool_size=[2, 2], strides=2)
+
+            # Convolutional Layer #2 and Pooling Layer #2
+            conv2 = tf.layers.conv2d(
+            inputs=pool1,
+            filters=64,
+            kernel_size=[5, 5],
+            padding="same",
+            activation=tf.nn.relu)
+            pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
+
+            # Dense Layer
+            pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+            dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
+            dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=True)
+
+            # Logits Layer
+            logits = tf.layers.dense(inputs=dropout, units=10)
+
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
         tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
