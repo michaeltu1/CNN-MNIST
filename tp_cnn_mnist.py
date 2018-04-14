@@ -66,7 +66,7 @@ class Model(ModelDesc):
 
             # following 6 layer architecture used previously
             conv1 = tf.layers.conv2d(
-            inputs=input_layer,
+            inputs=image,
             filters=32,
             kernel_size=[5, 5],
             padding="same",
@@ -87,10 +87,10 @@ class Model(ModelDesc):
             # Dense Layer
             pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
             dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
-            dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=mode == tf.estimator.ModeKeys.TRAIN)
+            dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=True)
 
             # Logits Layer
-            logits = tf.layers.dense(inputs=dropout, units=10))
+            logits = tf.layers.dense(inputs=dropout, units=10)
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
         tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
@@ -167,6 +167,7 @@ def get_config():
             InferenceRunner(    # run inference(for validation) after every epoch
                 dataset_test,   # the DataFlow instance used for validation
                 ScalarStats(['cross_entropy_loss', 'accuracy'])),
+                GPUUtilizationTracker([0,1]),   # monitor GPU usage
         ],
         steps_per_epoch=steps_per_epoch,
         max_epoch=100,
@@ -188,7 +189,7 @@ if __name__ == "__main__":
     # 00:1f.0 Unassigned class [ff80]: XenSource, Inc. Xen Platform Device (rev 01)
 
     # use the following command to run:
-    # python tp_cnn_mnist.py --gpu=0,1,2,3
+    # python tp_cnn_mnist.py --gpu=0,1
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
