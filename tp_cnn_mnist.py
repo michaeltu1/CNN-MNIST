@@ -63,23 +63,31 @@ class Model(ModelDesc):
         # ref. info about argscope: http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/tfutils/argscope.html
         # making layers in argscope is supposed to let you do something ..? assign arg. characteristics to each layer
         # tp layers
-        # """
-        with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
+        """
+        #with argscope(Conv2D, kernel_shape=3, nl=tf.nn.relu, out_channel=32):
 
-            # following 6 layer architecture used previously
-            c0 = Conv2D('conv0', image)
-            p0 = MaxPooling('pool0', c0, 2)
-            c1 = Conv2D('conv1', p0)
-            p1 = MaxPooling('pool1', c1, 2)
-            fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
-            fc1 = Dropout('dropout', fc1, rate=0.6)
-            logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
+        # following 6 layer architecture used previously
+        c0 = Conv2D('conv0', image, kernel_size=3, nl=tf.nn.relu, out_channel=32)
+        # c0.variables = None
+        p0 = MaxPooling('pool0', c0, 2)
+        # p0.variables = None
+        c1 = Conv2D('conv1', p0, kernel_size=3, nl=tf.nn.relu, out_channel=32)
+        # c1.variables = None
+        p1 = MaxPooling('pool1', c1, 2)
+        # p1.variables = None
+        fc1 = FullyConnected('fc0', p1, 1024, nl=tf.nn.relu)
+        # fc1.variables = None
+        fc1 = Dropout('dropout', fc1, rate=0.6)
+        # fc1.variables = None
+        logits = FullyConnected('fc1', fc1, out_dim=10, nl=tf.identity)
+        # logits.variables = None
         """
         # tf layers
         conv1 = tf.layers.conv2d(
         inputs=image,
         filters=32,
-        kernel_size=[5, 5],
+        kernel_size=3,
+        kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
         padding="same",
         activation=tf.nn.relu)
 
@@ -89,20 +97,22 @@ class Model(ModelDesc):
         # Convolutional Layer #2 and Pooling Layer #2
         conv2 = tf.layers.conv2d(
         inputs=pool1,
-        filters=64,
-        kernel_size=[5, 5],
+        filters=32,
+        kernel_size=3,
+        kernel_initializer=tf.contrib.layers.variance_scaling_initializer(2.0),
         padding="same",
         activation=tf.nn.relu)
+
         pool2 = tf.layers.max_pooling2d(inputs=conv2, pool_size=[2, 2], strides=2)
 
         # Dense Layer
-        pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 64])
+        pool2_flat = tf.reshape(pool2, [-1, 7 * 7 * 32])
         dense = tf.layers.dense(inputs=pool2_flat, units=1024, activation=tf.nn.relu)
         dropout = tf.layers.dropout(inputs=dense, rate=0.4, training=True)
 
         # Logits Layer
         logits = tf.layers.dense(inputs=dropout, units=10)
-        """
+        #"""
 
         # Should I have this line if I'm doing sparse_softmax_cross_entropy_with_logits later?
         tf.nn.softmax(logits, name='prob') # normalize to usable prob. distr.
@@ -179,8 +189,6 @@ def get_config():
             InferenceRunner(    # run inference(for validation) after every epoch
                 dataset_test,   # the DataFlow instance used for validation
                 ScalarStats(['cross_entropy_loss', 'accuracy'])),
-                # GPUUtilizationTracker([0,1]),   # monitor GPU usage
-                # PeakMemoryTracker([0,1]),       # callback computation is nontrivial
         ],
         steps_per_epoch=steps_per_epoch,
         max_epoch=100,
@@ -188,22 +196,6 @@ def get_config():
 
 
 if __name__ == "__main__":
-
-    # lscpci or lspci | grep -i --color 'vga\|3d\|2d' gets the graphic card on the machine
-    # $ lspci
-    # 00:00.0 Host bridge: Intel Corporation 440FX - 82441FX PMC [Natoma] (rev 02)
-    # 00:01.0 ISA bridge: Intel Corporation 82371SB PIIX3 ISA [Natoma/Triton II]
-    # 00:01.1 IDE interface: Intel Corporation 82371SB PIIX3 IDE [Natoma/Triton II]
-    # 00:01.3 Bridge: Intel Corporation 82371AB/EB/MB PIIX4 ACPI (rev 01)
-    # 00:02.0 VGA compatible controller: Cirrus Logic GD 5446
-    # 00:03.0 Ethernet controller: Device 1d0f:ec20
-    # 00:1d.0 VGA compatible controller: NVIDIA Corporation GM204GL [Tesla M60] (rev a1)
-    # 00:1e.0 VGA compatible controller: NVIDIA Corporation GM204GL [Tesla M60] (rev a1)
-    # 00:1f.0 Unassigned class [ff80]: XenSource, Inc. Xen Platform Device (rev 01)
-
-    # use the following command to run:
-    # python tp_cnn_mnist.py --gpu=0,1
-
     parser = argparse.ArgumentParser()
     parser.add_argument('--gpu', help='comma separated list of GPU(s) to use.')
     parser.add_argument('--load', help='load model')
@@ -220,18 +212,9 @@ if __name__ == "__main__":
 
     if args.gpu:
         print("Using MultiGPUTrainer ...")
-        # num_gpus = 2
-        # gpus = get_nr_gpu()
         nr_tower = get_nr_gpu()
-        # num_gpus = nr_tower
-        # print(nr_tower)
-        # assert nr_tower == NR_GPU 
-        # ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SyncMultiGPUTrainerReplicated
         launch_train_with_config(config, SyncMultiGPUTrainer(nr_tower))
-        # if you run into a module error run: pip install horovod
-        # launch_train_with_config(config, HorovodTrainer(average=False))
     else:
         print("Using QueueInputTrainer ...")
-        # trainer info ref. http://tensorpack.readthedocs.io/en/latest/_modules/tensorpack/train/trainers.html#SimpleTrainer
         launch_train_with_config(config, QueueInputTrainer())
 
